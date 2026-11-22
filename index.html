@@ -1,0 +1,640 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" type="image/png" href="icon.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Каса Громади</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Програма для касира церковної громади: суботні надходження, витрати, залишки по відділах і щомісячний звіт для конференції.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Golos+Text:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a cash ledger — navy cover with gold title, then ruled ledger pages; one live "split" calculator is the centrepiece. */
+:root {
+  --navy: #0B1F44;
+  --navy-2: #13306A;
+  --gold: #C9962E;
+  --gold-soft: #F1D58A;
+  --paper: #F5F7FB;
+  --sheet: #FFFFFF;
+  --ink: #0F1B33;
+  --muted: #56627A;
+  --rule: #D9DFEA;
+  --on-navy: #EEF2FA;
+  --conf: #13306A;
+  --local: #A8761C;
+  --font-display: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --font-body: "Golos Text", "Segoe UI", Roboto, system-ui, sans-serif;
+  --font-data: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --navy: #081633; --navy-2: #102856; --gold: #E0B24D; --gold-soft: #F3D98F;
+    --paper: #0B1328; --sheet: #111C36; --ink: #E7ECF6; --muted: #9AA7C2; --rule: #24324F;
+    --on-navy: #EEF2FA; --conf: #8FB0F0; --local: #E0B24D;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --navy: #081633; --navy-2: #102856; --gold: #E0B24D; --gold-soft: #F3D98F;
+  --paper: #0B1328; --sheet: #111C36; --ink: #E7ECF6; --muted: #9AA7C2; --rule: #24324F;
+  --on-navy: #EEF2FA; --conf: #8FB0F0; --local: #E0B24D;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 17px/1.6 var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+.wrap {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; }
+p { margin: 0; }
+.num { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+.eyebrow {
+  font: 600 12px/1 var(--font-body);
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+a { color: inherit; }
+:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; border-radius: 4px; }
+
+/* ── Cover ───────────────────────────────────────────── */
+.hero {
+  background: var(--navy);
+  color: var(--on-navy);
+  margin-top: calc(-1 * env(safe-area-inset-top, 0px));
+  padding-top: calc(env(safe-area-inset-top, 0px) + 3.5rem);
+  padding-bottom: 4rem;
+  position: relative;
+  overflow: hidden;
+}
+.hero::after {
+  content: "";
+  position: absolute; inset: auto 0 0 0; height: 6px;
+  background: repeating-linear-gradient(90deg, var(--gold) 0 18px, transparent 18px 26px);
+  opacity: .55;
+}
+.hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, .85fr);
+  gap: clamp(24px, 5vw, 64px);
+  align-items: center;
+}
+.hero h1 {
+  font-weight: 800;
+  font-size: clamp(44px, 9vw, 112px);
+  line-height: .95;
+  letter-spacing: -.02em;
+  color: var(--gold-soft);
+}
+.hero h1 span { display: block; color: var(--on-navy); }
+.lede {
+  margin-top: 1.5rem;
+  max-width: 34ch;
+  font-size: clamp(18px, 2.1vw, 22px);
+  line-height: 1.45;
+  color: color-mix(in srgb, var(--on-navy) 86%, transparent);
+}
+.hero-icon {
+  width: min(100%, 380px);
+  justify-self: center;
+  filter: drop-shadow(0 24px 40px rgba(0, 0, 0, .45));
+  animation: rise .9s cubic-bezier(.2, .7, .2, 1) both;
+}
+@keyframes rise { from { transform: translateY(18px) rotate(-4deg); opacity: .4; } to { transform: none; opacity: 1; } }
+
+.downloads { margin-top: 2.25rem; display: flex; flex-wrap: wrap; gap: 12px; }
+.dl {
+  display: inline-flex; flex-direction: column; gap: 2px;
+  min-width: 220px;
+  padding: 14px 20px;
+  border-radius: 12px;
+  text-decoration: none;
+  border: 1.5px solid var(--gold);
+  color: var(--on-navy);
+  transition: transform .15s ease, background-color .15s ease;
+}
+.dl strong { font: 600 18px/1.2 var(--font-body); }
+.dl small { font: 400 13px/1.3 var(--font-data); opacity: .8; }
+.dl.primary { background: var(--gold); color: var(--navy); }
+.dl[href]:hover { transform: translateY(-2px); }
+.dl[aria-disabled="true"] { cursor: default; opacity: .72; }
+.dl .status { font: 600 11px/1 var(--font-body); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 4px; }
+.dl-note { margin-top: 12px; font-size: 14px; color: color-mix(in srgb, var(--on-navy) 70%, transparent); max-width: 52ch; }
+
+/* ── Sections ─────────────────────────────────────────── */
+section { padding-block: clamp(56px, 8vw, 96px); }
+section + section { border-top: 1px solid var(--rule); }
+.sec-head { display: grid; gap: 12px; margin-bottom: 36px; max-width: 760px; }
+.sec-head h2 { font-weight: 700; font-size: clamp(28px, 4.2vw, 44px); line-height: 1.1; }
+.sec-head p { color: var(--muted); font-size: 18px; max-width: 62ch; }
+
+/* Idea: three steps of the cashier's month (a real sequence) */
+.flow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border-top: 2px solid var(--ink); }
+.flow li { list-style: none; padding: 22px 24px 8px 0; display: grid; gap: 8px; align-content: start; }
+.flow li + li { padding-left: 24px; border-left: 1px solid var(--rule); }
+.flow ol { margin: 0; padding: 0; display: contents; }
+.flow .when { font: 600 13px/1 var(--font-data); color: var(--gold); letter-spacing: .04em; }
+.flow h3 { font-size: 20px; font-weight: 700; }
+.flow p { color: var(--muted); }
+
+/* Calculator */
+.calc {
+  display: grid;
+  grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  border-radius: 18px;
+  overflow: hidden;
+}
+.calc-in { padding: 28px; display: grid; gap: 18px; align-content: start; border-right: 1px solid var(--rule); }
+.calc-in .sample { font-size: 13px; color: var(--muted); }
+.field { display: grid; gap: 6px; }
+.field label { font-weight: 600; font-size: 15px; display: flex; justify-content: space-between; gap: 12px; }
+.field label em { font-style: normal; font-weight: 400; color: var(--muted); font-size: 13px; }
+.field input[type="number"] {
+  width: 100%;
+  font: 600 20px/1 var(--font-data);
+  font-variant-numeric: tabular-nums;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1.5px solid var(--rule);
+  background: var(--paper);
+  color: var(--ink);
+}
+.field input[type="number"]:focus { border-color: var(--gold); outline: none; }
+.field input[type="range"] { width: 100%; accent-color: var(--gold); }
+.split-val { font: 600 15px/1 var(--font-data); color: var(--ink); }
+
+.calc-out { padding: 28px; display: grid; gap: 22px; align-content: start; min-width: 0; }
+.totals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.total { display: grid; gap: 4px; }
+.total .lbl { font-size: 13px; color: var(--muted); }
+.total .val { font: 600 clamp(24px, 3.4vw, 34px)/1.1 var(--font-data); font-variant-numeric: tabular-nums; }
+.total.conf .val { color: var(--conf); }
+.total.local .val { color: var(--local); }
+.bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: var(--rule); }
+.bar i { display: block; height: 100%; transition: width .35s ease; }
+.bar .c { background: var(--conf); }
+.bar .l { background: var(--local); }
+.ledger { width: 100%; border-collapse: collapse; font-size: 15px; }
+.ledger caption { text-align: left; font-weight: 600; padding-bottom: 8px; }
+.ledger th, .ledger td { padding: 7px 0; border-bottom: 1px dashed var(--rule); text-align: left; }
+.ledger th { font: 600 12px/1 var(--font-body); color: var(--muted); letter-spacing: .08em; text-transform: uppercase; }
+.ledger td.r, .ledger th.r { text-align: right; }
+.ledger td.r { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+.ledger tfoot td { border-bottom: 0; border-top: 2px solid var(--ink); font-weight: 600; }
+.calc-foot { font-size: 13px; color: var(--muted); }
+
+/* Capabilities as a ledger list */
+.ledger-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 48px; }
+.item { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 16px; padding-block: 22px; border-top: 1px solid var(--rule); }
+.item .code { font: 600 13px/1.6 var(--font-data); color: var(--gold); }
+.item h3 { font-size: 18px; font-weight: 700; margin-bottom: 6px; font-family: var(--font-body); }
+.item p { color: var(--muted); font-size: 16px; }
+.formula {
+  display: inline-block; margin-top: 10px;
+  font: 400 14px/1.5 var(--font-data);
+  background: var(--paper); border: 1px solid var(--rule);
+  padding: 8px 12px; border-radius: 8px; color: var(--ink);
+}
+
+/* Reports */
+.reports { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; align-items: start; }
+.paper {
+  background: var(--sheet); border: 1px solid var(--rule); border-radius: 6px;
+  padding: 22px 22px 18px; font-size: 13px; line-height: 1.45;
+  box-shadow: 0 18px 40px -22px rgba(11, 31, 68, .45);
+  position: relative;
+}
+.paper h4 { margin: 0 0 4px; font: 700 15px/1.2 var(--font-body); text-align: center; }
+.paper .meta { display: flex; justify-content: space-between; gap: 8px; color: var(--muted); margin-bottom: 12px; flex-wrap: wrap; }
+.paper .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.paper .cols b { display: block; border-bottom: 1px solid var(--ink); margin-bottom: 6px; }
+.paper .row { display: flex; justify-content: space-between; gap: 6px; }
+.paper .row span:last-child { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+.paper .sum { border-top: 1.5px solid var(--ink); margin-top: 8px; padding-top: 6px; font-weight: 700; }
+.paper .cut { margin: 16px -22px 0; border-top: 1.5px dashed var(--muted); position: relative; }
+.paper .cut::after { content: "лінія відрізу — нижня половина залишається в громаді"; position: absolute; left: 22px; top: 4px; font-size: 11px; color: var(--muted); }
+.report-list { display: grid; gap: 0; margin: 0; padding: 0; }
+.report-list li { list-style: none; padding: 16px 0; border-top: 1px solid var(--rule); display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 14px; }
+.fmt { font: 600 12px/1 var(--font-data); padding: 6px 0; text-align: center; border-radius: 6px; border: 1.5px solid currentColor; align-self: start; }
+.fmt.pdf { color: #B3261E; }
+.fmt.xls { color: #1E7B45; }
+.report-list strong { display: block; font-size: 17px; }
+.report-list span { color: var(--muted); font-size: 15px; }
+
+/* Currencies */
+.cur-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 2px solid var(--ink); }
+.cur { padding: 22px 18px 18px 0; display: grid; gap: 6px; }
+.cur + .cur { padding-left: 18px; border-left: 1px solid var(--rule); }
+.cur .sym { font: 700 clamp(40px, 6vw, 64px)/1 var(--font-display); color: var(--gold); }
+.cur .code { font: 600 14px/1 var(--font-data); letter-spacing: .06em; }
+.cur p { color: var(--muted); font-size: 15px; }
+.cur-notes { margin-top: 28px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; }
+.cur-notes p { color: var(--muted); }
+.cur-notes strong { color: var(--ink); display: block; margin-bottom: 4px; }
+
+/* Safety + install */
+.two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 48px; }
+.facts { margin: 0; padding: 0; display: grid; }
+.facts li { list-style: none; padding: 14px 0; border-top: 1px solid var(--rule); display: grid; gap: 2px; }
+.facts strong { font-size: 17px; }
+.facts span { color: var(--muted); font-size: 15px; }
+.steps { margin: 0; padding: 0; counter-reset: s; display: grid; }
+.steps li { list-style: none; counter-increment: s; padding: 14px 0 14px 46px; border-top: 1px solid var(--rule); position: relative; }
+.steps li::before {
+  content: counter(s); position: absolute; left: 0; top: 14px;
+  width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center;
+  font: 700 14px/1 var(--font-data); background: var(--navy); color: var(--gold-soft);
+}
+.steps strong { display: block; }
+.steps span { color: var(--muted); font-size: 15px; }
+.platform-tabs { display: inline-flex; gap: 4px; padding: 4px; border-radius: 10px; background: var(--sheet); border: 1px solid var(--rule); margin-bottom: 14px; }
+.platform-tabs button {
+  font: 600 14px/1 var(--font-body); border: 0; padding: 10px 16px; border-radius: 7px;
+  background: transparent; color: var(--muted); cursor: pointer;
+}
+.platform-tabs button[aria-selected="true"] { background: var(--navy); color: var(--on-navy); }
+
+footer { background: var(--navy); color: var(--on-navy); padding-block: 36px; margin-top: 0; }
+footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; font-size: 14px; }
+footer .num { color: var(--gold-soft); }
+
+@media (max-width: 860px) {
+  .hero-grid, .calc, .reports, .two { grid-template-columns: minmax(0, 1fr); }
+  .hero-icon { width: min(60%, 240px); order: -1; justify-self: start; }
+  .calc-in { border-right: 0; border-bottom: 1px solid var(--rule); }
+  .ledger-list { grid-template-columns: minmax(0, 1fr); }
+  .cur-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cur:nth-child(3) { padding-left: 0; border-left: 0; }
+  .cur-notes { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+}
+@media (max-width: 640px) {
+  .flow { grid-template-columns: minmax(0, 1fr); }
+  .flow li + li { padding-left: 0; border-left: 0; border-top: 1px solid var(--rule); }
+  .dl { min-width: 0; flex: 1 1 100%; }
+  .calc-in, .calc-out { padding: 20px; }
+  .paper .cols { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <p class="eyebrow">Програма для касира громади · версія 1.1</p>
+      <h1 style="margin-top:18px">Каса <span>Громади</span></h1>
+      <p class="lede">Внесіть суботні надходження — програма сама розділить їх між конференцією та відділами громади і підготує місячний звіт.</p>
+      <div class="downloads" id="downloads">
+        <a class="dl primary" data-platform="mac">
+          <span class="status">Версія 1.1.0</span>
+          <strong>Завантажити для Mac</strong>
+          <small>Mac з процесором Apple · 52 МБ</small>
+        </a>
+        <a class="dl" data-platform="windows">
+          <span class="status">Версія 1.1.0</span>
+          <strong>Завантажити для Windows</strong>
+          <small>Windows 10/11 · KasaGromady.exe</small>
+        </a>
+      </div>
+      <p class="dl-note" id="dl-note">Працює без інтернету. Усі дані зберігаються в одному зашифрованому файлі на вашому комп'ютері або флешці.</p>
+    </div>
+    <img class="hero-icon" src="icon.png" alt="Іконка програми «Каса Громади»: сейф і звіт на темно-синьому колі із золотим полум'ям" width="480" height="480">
+  </div>
+</header>
+
+<main>
+  <section id="idea">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Ідея</p>
+        <h2>Касир вносить цифри один раз. Решту рахує програма.</h2>
+        <p>Раніше суботні надходження переписували в зошит, ділили на калькуляторі, а в кінці місяця зводили в таблицю. Тепер це одна програма: кожна гривня потрапляє туди, куди має, і звіт для конференції збігається з книгою громади.</p>
+      </div>
+      <div class="flow">
+        <ol>
+          <li>
+            <span class="when">щосуботи</span>
+            <h3>Внести надходження</h3>
+            <p>Десятина, приношення і цільові пожертви за суботу, у тій валюті, в якій їх зібрали.</p>
+          </li>
+          <li>
+            <span class="when">протягом місяця</span>
+            <h3>Записати витрати</h3>
+            <p>Витрата списується з конкретного відділу. Поруч видно, скільки у відділу залишилось.</p>
+          </li>
+          <li>
+            <span class="when">в кінці місяця</span>
+            <h3>Надрукувати звіт</h3>
+            <p>Один аркуш A4 з двома однаковими примірниками: верхній — для конференції, нижній — для громади.</p>
+          </li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section id="split">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Що рахує програма</p>
+        <h2>Як ділиться кожна субота</h2>
+        <p>Десятина повністю йде конференції. Приношення ділиться за відсотком, який встановлює громада. Частка громади далі розходиться по відділах. Змініть цифри й подивіться самі.</p>
+      </div>
+
+      <div class="calc">
+        <form class="calc-in" id="calc-form" autocomplete="off">
+          <p class="sample">Приклад однієї суботи, гривні</p>
+          <div class="field">
+            <label for="tithe">Десятина <em>100% конференції</em></label>
+            <input id="tithe" type="number" min="0" step="100" value="12400" inputmode="decimal">
+          </div>
+          <div class="field">
+            <label for="offering">Приношення <em>ділиться</em></label>
+            <input id="offering" type="number" min="0" step="100" value="5000" inputmode="decimal">
+          </div>
+          <div class="field">
+            <label for="targeted">Цільові на конференцію <em>напр. «Надія», АДРА</em></label>
+            <input id="targeted" type="number" min="0" step="100" value="800" inputmode="decimal">
+          </div>
+          <div class="field">
+            <label for="share">Частка конференції з приношень <span class="split-val" id="share-val">40% / 60%</span></label>
+            <input id="share" type="range" min="0" max="100" step="5" value="40" aria-describedby="share-val">
+          </div>
+        </form>
+
+        <div class="calc-out" aria-live="polite">
+          <div class="totals">
+            <div class="total conf"><span class="lbl">До конференції</span><span class="val" id="out-conf">0</span></div>
+            <div class="total local"><span class="lbl">До громади</span><span class="val" id="out-local">0</span></div>
+          </div>
+          <div class="bar" aria-hidden="true"><i class="c" id="bar-c"></i><i class="l" id="bar-l"></i></div>
+          <div style="overflow-x:auto">
+            <table class="ledger">
+              <caption>Частка громади по відділах</caption>
+              <thead><tr><th>Відділ</th><th class="r">%</th><th class="r">Сума, ₴</th></tr></thead>
+              <tbody id="dept-rows"></tbody>
+              <tfoot><tr><td>Разом</td><td class="r">100</td><td class="r" id="dept-total">0</td></tr></tfoot>
+            </table>
+          </div>
+          <p class="calc-foot">Відділи й відсотки — приклад однієї громади. У програмі кожна громада задає свої, з датою, з якої вони діють.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Можливості</p>
+        <h2>Усе, що веде касир, в одному місці</h2>
+      </div>
+      <div class="ledger-list">
+        <div class="item">
+          <span class="code">НДХ</span>
+          <div>
+            <h3>Суботні надходження</h3>
+            <p>Усі суботи року вже в списку. Чотири категорії: десятина, приношення, цільові на конференцію, цільові на громаду з вибором відділу. Можна додати додаткову дату.</p>
+          </div>
+        </div>
+        <div class="item">
+          <span class="code">%</span>
+          <div>
+            <h3>Розподіл по відділах</h3>
+            <p>Кожен відділ отримує свій відсоток від частки громади. Відсотки можна змінити з потрібної дати, а сума завжди перевіряється на 100%.</p>
+          </div>
+        </div>
+        <div class="item">
+          <span class="code">ВТР</span>
+          <div>
+            <h3>Витрати</h3>
+            <p>Дата, відділ, категорія, валюта, сума, опис і номер квитанції. Зведена таблиця показує, скільки витратив кожен відділ.</p>
+          </div>
+        </div>
+        <div class="item">
+          <span class="code">КНФ</span>
+          <div>
+            <h3>Виплати громади на конференцію</h3>
+            <p>Окремий пункт для кожного місяця: страхування молитовного будинку, література, виноградний сік. Сума списується з відділу і входить у звіт конференції.</p>
+          </div>
+        </div>
+        <div class="item">
+          <span class="code">ЗЛШ</span>
+          <div>
+            <h3>Залишки щомісяця</h3>
+            <p>Для кожного відділу в кожній валюті програма сама веде залишок і переносить його на наступний місяць.</p>
+            <span class="formula">залишок = на початок + надходження − витрати ± обмін</span>
+          </div>
+        </div>
+        <div class="item">
+          <span class="code">АРХ</span>
+          <div>
+            <h3>Архів року</h3>
+            <p>Наприкінці року програма зберігає архів і створює базу нового року, де залишки грудня стають залишками січня. Архіви відкриваються тільки для перегляду.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="reports">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Звіти</p>
+        <h2>Звіт для конференції — одним натисканням</h2>
+        <p>Програма бере вже внесені цифри, тож звіт завжди збігається з книгою.</p>
+      </div>
+      <div class="reports">
+        <figure class="paper" style="margin:0" aria-label="Зразок щомісячного звіту касира">
+          <h4>Щомісячний звіт касира громади</h4>
+          <div class="meta"><span>Громада: приклад</span><span>Місяць: листопад</span></div>
+          <div class="cols">
+            <div>
+              <b>До конференції</b>
+              <div class="row"><span>Десятина (100%)</span><span>49 600</span></div>
+              <div class="row"><span>Приношення (40%)</span><span>8 000</span></div>
+              <div class="row"><span>Телеканал «Надія»</span><span>1 200</span></div>
+              <div class="row"><span>Страхування мол. будинку</span><span>1 600</span></div>
+              <div class="row sum"><span>Всього, UAH</span><span>60 400</span></div>
+            </div>
+            <div>
+              <b>До громади</b>
+              <div class="row"><span>Приношення (60%)</span><span>12 000</span></div>
+              <div class="row"><span>Ремонт</span><span>2 500</span></div>
+              <div class="row sum"><span>Всього, UAH</span><span>14 500</span></div>
+            </div>
+          </div>
+          <div class="cut"></div>
+          <figcaption class="sample" style="margin-top:26px;font-size:12px;color:var(--muted)">Зразок, цифри вигадані</figcaption>
+        </figure>
+        <ul class="report-list">
+          <li><span class="fmt pdf">PDF</span><div><strong>Щомісячний звіт касира</strong><span>Два однакові примірники на одному аркуші A4 з лінією відрізу, підписи касира і того, хто прийняв.</span></div></li>
+          <li><span class="fmt pdf">PDF</span><div><strong>Повний звіт громади</strong><span>Надходження з поділом на конференцію і громаду та нарахування кожному відділу.</span></div></li>
+          <li><span class="fmt xls">XLSX</span><div><strong>Рух приходу за рік</strong><span>Помісячно, за категоріями, окремо для кожної валюти.</span></div></li>
+          <li><span class="fmt xls">XLSX</span><div><strong>Рух витрат за рік або період</strong><span>Помісячно по відділах, плюс окремий аркуш виплат громади на конференцію.</span></div></li>
+          <li><span class="fmt xls">XLSX</span><div><strong>Річний звіт по залишках</strong><span>Аркуш на кожен місяць і річні підсумки по кожній валюті.</span></div></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="currencies">
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="eyebrow">Валюти</p>
+        <h2>Кожна валюта — окрема колонка</h2>
+        <p>Пожертви рахуються в тій валюті, в якій їх дали. Програма не перераховує долари в гривні за курсом: у звіті кожна валюта має свою суму.</p>
+      </div>
+      <div class="cur-grid">
+        <div class="cur"><span class="sym">₴</span><span class="code">UAH</span><p>Гривня — основна валюта</p></div>
+        <div class="cur"><span class="sym">$</span><span class="code">USD</span><p>Долар США</p></div>
+        <div class="cur"><span class="sym">€</span><span class="code">EUR</span><p>Євро</p></div>
+        <div class="cur"><span class="sym">zł</span><span class="code">PLN</span><p>Польський злотий</p></div>
+      </div>
+      <div class="cur-notes">
+        <p><strong>Обмін валют</strong>Якщо громада обміняла долари на гривні, касир вносить обмін окремою операцією: скільки віддали і скільки отримали. Залишки обох валют зміняться правильно.</p>
+        <p><strong>Інші валюти</strong>Адміністратор може додати нову валюту або вимкнути непотрібну в налаштуваннях.</p>
+        <p><strong>Підсумки</strong>Разом за суботу, за місяць і за рік рахуються окремо для кожної валюти.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="safety">
+    <div class="wrap two">
+      <div>
+        <div class="sec-head" style="margin-bottom:20px">
+          <p class="eyebrow">Дані та безпека</p>
+          <h2>Гроші громади — тільки у вас</h2>
+        </div>
+        <ul class="facts">
+          <li><strong>Зашифрований файл</strong><span>База зберігається на диску в зашифрованому вигляді. Без програми її не прочитати.</span></li>
+          <li><strong>Вхід за паролем</strong><span>Ролі адміністратора і касира. Налаштування змінює тільки адміністратор.</span></li>
+          <li><strong>Без інтернету</strong><span>Програма нічого нікуди не надсилає. Її можна носити на флешці разом із базою.</span></li>
+          <li><strong>Автозбереження</strong><span>Надходження зберігаються автоматично щохвилини. Якщо комп'ютер вимкнувся, програма запропонує відновити дані.</span></li>
+          <li><strong>Кілька громад</strong><span>Адміністратор може створити окрему базу для іншої громади і переглядати бази та архіви без права зміни.</span></li>
+        </ul>
+      </div>
+      <div>
+        <div class="sec-head" style="margin-bottom:20px">
+          <p class="eyebrow">Встановлення</p>
+          <h2>Перший запуск</h2>
+        </div>
+        <div class="platform-tabs" role="tablist" aria-label="Система">
+          <button id="tab-mac" role="tab" aria-selected="true" aria-controls="steps-mac">Mac</button>
+          <button id="tab-win" role="tab" aria-selected="false" aria-controls="steps-win">Windows</button>
+        </div>
+        <ol class="steps" id="steps-mac" role="tabpanel" aria-labelledby="tab-mac">
+          <li><strong>Завантажте і перенесіть у «Програми»</strong><span>Розпакуйте архів і перетягніть «Каса Громади» в папку «Програми».</span></li>
+          <li><strong>Відкрийте через правий клик</strong><span>Перший раз: правий клик на програмі → «Відкрити». Якщо macOS не дає: Системні параметри → Конфіденційність і безпека → «Все одно відкрити».</span></li>
+          <li><strong>Оберіть базу</strong><span>«Відкрити наявну базу», якщо файл вам передали, або «Створити нову базу». Програма запам'ятає вибір.</span></li>
+          <li><strong>Увійдіть</strong><span>Логін і пароль дає адміністратор. Після першого входу змініть пароль.</span></li>
+        </ol>
+        <ol class="steps" id="steps-win" role="tabpanel" aria-labelledby="tab-win" hidden>
+          <li><strong>Завантажте файл</strong><span>Покладіть KasaGromady.exe у папку або на флешку, де лежатиме база.</span></li>
+          <li><strong>Дозвольте запуск</strong><span>Якщо Windows покаже «Захистила ваш ПК»: «Докладніше» → «Все одно запустити».</span></li>
+          <li><strong>Оберіть базу</strong><span>Якщо church_cash.db лежить поруч, програма відкриє його сама. Інакше — відкрийте наявну або створіть нову.</span></li>
+          <li><strong>Увійдіть</strong><span>Логін і пароль дає адміністратор. Після першого входу змініть пароль.</span></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Каса Громади — облік фінансів церковної громади</span>
+    <span>Версія <span class="num">1.1.0</span></span>
+  </div>
+</footer>
+
+<script>
+  // Download links: put the real URLs here when the files are published.
+  const DOWNLOADS = {
+    mac: "https://github.com/o-ly/kasa-gromady/releases/latest/download/KasaGromady-mac.zip",
+    windows: "https://github.com/o-ly/kasa-gromady/releases/latest/download/KasaGromady-windows.exe"
+  };
+
+  document.querySelectorAll(".dl").forEach((el) => {
+    const url = DOWNLOADS[el.dataset.platform];
+    if (url) {
+      el.href = url;
+      el.target = "_blank";
+      el.rel = "noopener";
+    } else {
+      el.setAttribute("aria-disabled", "true");
+      el.setAttribute("role", "link");
+      el.querySelector("small").textContent = "Посилання з'явиться незабаром";
+    }
+  });
+
+  const DEPTS = [
+    ["Молитовний будинок", 44],
+    ["Дияконський", 19],
+    ["Діти та молодь", 10],
+    ["Школа", 10],
+    ["Місіонерський", 6],
+    ["Жіночий", 4],
+    ["Сімейний", 4],
+    ["Здоров'я", 3]
+  ];
+
+  const fmt = new Intl.NumberFormat("uk-UA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const $ = (id) => document.getElementById(id);
+  const val = (id) => Math.max(0, parseFloat($(id).value) || 0);
+
+  function split(tithe, offering, targeted, confPct) {
+    const conf = tithe + offering * confPct / 100 + targeted;
+    const local = offering * (100 - confPct) / 100;
+    const depts = DEPTS.map(([name, pct]) => [name, pct, local * pct / 100]);
+    return { conf, local, depts };
+  }
+
+  function render() {
+    const p = val("share");
+    $("share-val").textContent = `${p}% / ${100 - p}%`;
+    const r = split(val("tithe"), val("offering"), val("targeted"), p);
+    $("out-conf").textContent = fmt.format(r.conf) + " ₴";
+    $("out-local").textContent = fmt.format(r.local) + " ₴";
+    const all = r.conf + r.local || 1;
+    $("bar-c").style.width = (r.conf / all * 100) + "%";
+    $("bar-l").style.width = (r.local / all * 100) + "%";
+    $("dept-rows").innerHTML = r.depts.map(([n, pct, s]) =>
+      `<tr><td>${n}</td><td class="r">${pct}</td><td class="r">${fmt.format(s)}</td></tr>`).join("");
+    $("dept-total").textContent = fmt.format(r.depts.reduce((a, d) => a + d[2], 0));
+  }
+
+  $("calc-form").addEventListener("input", render);
+  $("calc-form").addEventListener("submit", (e) => e.preventDefault());
+  render();
+
+  const tabs = [["tab-mac", "steps-mac"], ["tab-win", "steps-win"]];
+  tabs.forEach(([tabId]) => {
+    $(tabId).addEventListener("click", () => {
+      tabs.forEach(([t, panel]) => {
+        const on = t === tabId;
+        $(t).setAttribute("aria-selected", String(on));
+        $(panel).hidden = !on;
+      });
+    });
+  });
+</script>
+
+</body>
+</html>
